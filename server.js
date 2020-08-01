@@ -1,6 +1,8 @@
 const express = require("express");
 const mysql = require("mysql");
 const inquirer = require("inquirer");
+const cTable = require("console.table");
+const { prompts } = require("inquirer");
 const app = express();
 
 var PORT = process.env.PORT || 8080;
@@ -28,7 +30,7 @@ function showEmployees() {
     if (err) {
       throw err;
     }
-    console.log(res);
+    console.table(res);
     promptUser();
   })
 }
@@ -45,20 +47,35 @@ function byDepartment() {
       if (err) {
         throw err
       }
-      console.log(res);
+      console.table(res);
       promptUser();
     })
   })
 }
 
 function viewByManager() {
-  connection.query("SELECT * FROM employees WHERE ?", {manager: "Thomas"}, function(err, res) {
+  connection.query("SELECT * FROM employees", function (err, res) {
     if (err) {
       throw err;
     }
-    console.log(res);
-    promptUser();
+    console.table(res);
   })
+  inquirer
+    .prompt(
+      {
+        type: "input",
+        name: "manager",
+        message: "What manager should we search? (look above)"
+      }
+      ).then(function(answers) {
+        connection.query("SELECT * FROM employees WHERE ?", {manager: answers.manager}, function(err, res) {
+          if (err) {
+            throw err;
+          }
+          console.log(res);
+          promptUser();
+        })
+    })
 }
 
 function addEmployee() {
@@ -102,10 +119,9 @@ function addEmployee() {
       }
     },
     {
-      type: "list",
+      type: "input",
       name: "manager",
-      message: "Who's going to be your manager?",
-      choices: ["Thomas"]
+      message: "Who's going to be their manager?"
     }
     ]).then(function(answers) {
         connection.query("INSERT INTO employees SET ?", [answers] , function(err, res) {
@@ -114,15 +130,14 @@ function addEmployee() {
           }
           console.log("New Employee Added!");
           promptUser();
-  })
-  })
-
+  });
+  });
 }
 
 function removeEmployee () {
   connection.query("SELECT * FROM employees", function(err,data) {
     if (err) throw err;
-    console.log(data); 
+    console.table(data); 
     inquirer
       .prompt(
         {
@@ -133,14 +148,74 @@ function removeEmployee () {
       ).then(function(answers) {
         connection.query("DELETE FROM employees WHERE ?", { first_name: answers.first_name }, function(err, res) {
           if (err) {
-            throw err
+            throw err;
           }
-          console.log("Fired their ass!")
-        })
-      })
-  })
+          console.log("Fired their ass!");
+          promptUser();
+        });
+      });
+  });
 }
 
+function updateEmployee () {
+  connection.query("SELECT * FROM employees", function (err, res) {
+    if (err) {
+      throw err;
+    }
+    console.table(res);
+  })
+    inquirer
+      .prompt([
+        {
+          type: "input",
+          name: "first_name",
+          message: "Which employee are you changing their job title? (look above)"
+        },
+        {
+          type: "input",
+          name: "title",
+          message: "What is their new job title?"
+        }
+        ]).then(function(answers) {
+          connection.query("UPDATE employees SET title = ? WHERE first_name = ?", [ title = answers.title, first_name = answers.first_name ], function(err, res) {
+            if (err) {
+              throw err
+            }
+            console.log("Employee title Updated");
+            promptUser();
+          })
+        })
+}
+
+function updateManager () {
+  connection.query("SELECT * FROM employees", function (err, res) {
+    if (err) {
+      throw err;
+    }
+    console.table(res);
+  })
+    inquirer
+      .prompt([
+        {
+          type: "input",
+          name: "first_name",
+          message: "Which employee's manager are you changing? (look above)"
+        },
+        {
+          type: "input",
+          name: "manager",
+          message: "Who is their new manager?"
+        }
+        ]).then(function(answers) {
+          connection.query("UPDATE employees SET manager = ? WHERE first_name = ?", [ manager = answers.manager, first_name = answers.first_name ], function(err, res) {
+            if (err) {
+              throw err
+            }
+            console.log("Employee title Updated");
+            promptUser();
+          })
+        })
+}
 
 function promptUser() {
   return inquirer.prompt([
@@ -174,11 +249,13 @@ function promptUser() {
         break;
 
       case "Update Employee Role":
+        updateEmployee();
         break;
 
       case "Update Employee Manager":
+        updateManager();
         break;
-    }
-  })
+    };
+  });
 }
 
