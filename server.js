@@ -1,7 +1,6 @@
 const express = require("express");
 const mysql = require("mysql");
 const inquirer = require("inquirer");
-const { connect } = require("http2");
 const app = express();
 
 var PORT = process.env.PORT || 8080;
@@ -15,11 +14,7 @@ var connection = mysql.createConnection({
 });
 
 connection.connect(function(err) {
-    if (err) {
-      console.error("error connecting: " + err.stack);
-      return;
-    }
-    console.log("connected as id " + connection.threadId);
+    if (err) throw err;
     promptUser();
 });
 
@@ -39,27 +34,25 @@ function showEmployees() {
 }
 
 function byDepartment() {
-  return inquirer.prompt([
-    {
+  inquirer.prompt({
       type: "list",
       name: "department",
       message: "What department should we search?",
       choices: ["sales", "legal", "engineering", "finance"]
-    }
-  ]).then(function(answers) {
-    connection.query("SELECT * FROM employees WHERE ?", [answers.department], function(err, res) {
+  })
+  .then(function(answers) {
+    connection.query("SELECT * FROM employees WHERE ?", { department: answers.department }, function(err, res) {
       if (err) {
         throw err
       }
       console.log(res);
       promptUser();
     })
-
   })
 }
 
 function viewByManager() {
-  connection.query("SELECT * FROM employee WHERE manager = Thomas", function(err, res) {
+  connection.query("SELECT * FROM employees WHERE ?", {manager: "Thomas"}, function(err, res) {
     if (err) {
       throw err;
     }
@@ -67,6 +60,87 @@ function viewByManager() {
     promptUser();
   })
 }
+
+function addEmployee() {
+  inquirer.prompt([
+    {
+      type:"input",
+      name: "first_name",
+      message: "What is your first name?",
+    },
+    {
+      type: "input",
+      name: "last_name",
+      message: "What is your last name?"
+    },
+    {
+      type: "input",
+      name: "title",
+      message: "What Would you like your job title to be?"
+    },
+    {
+    type: "list",
+    name: "department",
+    message: "What department are they working in?",
+    choices: ["sales", "legal", "engineering", "finance"]
+    },
+    {
+      type: "input",
+      name: "salary", 
+      message: "What would is the starting salary? (under 150,000)",
+      validate: function(value) {
+        if (isNaN(value) === false) {
+          return true;
+        }
+        return false
+      },
+      validate: function(value) {
+        if ((value < 150000) === true) {
+          return true;
+        }
+        return false;
+      }
+    },
+    {
+      type: "list",
+      name: "manager",
+      message: "Who's going to be your manager?",
+      choices: ["Thomas"]
+    }
+    ]).then(function(answers) {
+        connection.query("INSERT INTO employees SET ?", [answers] , function(err, res) {
+          if (err) {
+            throw err
+          }
+          console.log("New Employee Added!");
+          promptUser();
+  })
+  })
+
+}
+
+function removeEmployee () {
+  connection.query("SELECT * FROM employees", function(err,data) {
+    if (err) throw err;
+    console.log(data); 
+    inquirer
+      .prompt(
+        {
+          type: "input",
+          name: "first_name",
+          message: "Which employee are we removing?"
+        }
+      ).then(function(answers) {
+        connection.query("DELETE FROM employees WHERE ?", { first_name: answers.first_name }, function(err, res) {
+          if (err) {
+            throw err
+          }
+          console.log("Fired their ass!")
+        })
+      })
+  })
+}
+
 
 function promptUser() {
   return inquirer.prompt([
@@ -92,9 +166,11 @@ function promptUser() {
         break;
 
       case "Add Employee":
+        addEmployee();
         break;
 
       case "Remove Employee":
+        removeEmployee();
         break;
 
       case "Update Employee Role":
